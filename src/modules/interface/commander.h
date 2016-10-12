@@ -56,5 +56,5 @@ uint32_t commanderGetInactivityTime(void);
 void commanderExtrxSet(const struct CommanderCrtpValues* val);
 
 void commanderGetSetpoint(setpoint_t *setpoint, const state_t *state);
-
+bool commanderGetShoot();
 #endif /* COMMANDER_H_ */

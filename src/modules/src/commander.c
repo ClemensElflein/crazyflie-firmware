@@ -36,6 +36,7 @@
 #include "num.h"
 #include "debug.h"
 #include "ext_position.h"
+#include "i2cdev.h"
 
 #define MIN_THRUST  1000
 #define MAX_THRUST  60000
@@ -85,6 +86,7 @@ static bool posSetMode = false;
 static RPYType stabilizationModeRoll  = ANGLE; // Current stabilization type of roll (rate or angle)
 static RPYType stabilizationModePitch = ANGLE; // Current stabilization type of pitch (rate or angle)
 static RPYType stabilizationModeYaw   = RATE;  // Current stabilization type of yaw (rate or angle)
+static uint32_t shootState = 0;
 
 static YawModeType yawMode = DEFAULT_YAW_MODE; // Yaw mode configuration
 static bool carefreeResetFront;             // Reset what is front in carefree mode
@@ -180,6 +182,15 @@ static void commanderCrtpCB(CRTPPacket* pk)
   }
 }
 
+bool commanderGetShoot() {
+	shootState++;
+	if(shootState >= 1000) {
+		shootState = 0;
+		return true;
+	}
+	return false;
+}
+
 /**
  * Rotate Yaw so that the Crazyflie will change what is considered front.
  *
@@ -260,8 +271,17 @@ void commanderInit(void)
   }
 
   crtpInit();
+  //crtpRegisterPortCB(CRTP_PORT_SETPOINT, commanderCrtpCB);
+  //crtpRegisterPortCB(CRTP_PORT_SHOOT, commanderShoot);
   crtpRegisterPortCB(CRTP_PORT_SETPOINT, commanderCrtpCB);
   extPositionInit(); // Set callback for CRTP_PORT_POSITION
+
+  bool success = i2cdevInit(I2C2);
+  if(success) {
+  	consolePuts("i2c success");
+  } else {
+  	consolePuts("i2c failed");
+  }
 
   activeCache = &crtpCache;
   lastUpdate = xTaskGetTickCount();
@@ -386,4 +406,5 @@ PARAM_ADD(PARAM_UINT8, yawRst, &carefreeResetFront)
 PARAM_ADD(PARAM_UINT8, stabModeRoll, &stabilizationModeRoll)
 PARAM_ADD(PARAM_UINT8, stabModePitch, &stabilizationModePitch)
 PARAM_ADD(PARAM_UINT8, stabModeYaw, &stabilizationModeYaw)
+PARAM_ADD(PARAM_UINT8, shootState, &shootState)
 PARAM_GROUP_STOP(flightmode)
