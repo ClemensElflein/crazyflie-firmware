@@ -61,6 +61,7 @@ static enum { notSentSecondStart, sentSecondStart} txState;
 static xQueueHandle packetDelivery;
 static xQueueHandle uartDataDelivery;
 static DMA_InitTypeDef DMA_InitStructureShare;
+static void uartCustomPacket(CRTPPacket *p);
 
 void uartRxTask(void *param);
 
@@ -94,6 +95,8 @@ void uartDmaInit(void)
   isUartDmaInitialized = TRUE;
 }
 
+CRTPPacket reply;
+
 void uartInit(void)
 {
 
@@ -121,7 +124,7 @@ void uartInit(void)
   USART_InitStructure.USART_BaudRate            = 2000000;
   USART_InitStructure.USART_Mode                = USART_Mode_Tx;
 #else
-  USART_InitStructure.USART_BaudRate            = 115200;
+  USART_InitStructure.USART_BaudRate            = 9600;
   USART_InitStructure.USART_Mode                = USART_Mode_Rx | USART_Mode_Tx;
 #endif
   USART_InitStructure.USART_WordLength          = USART_WordLength_8b;
@@ -154,6 +157,9 @@ void uartInit(void)
   USART_Cmd(UART_TYPE, ENABLE);
 
   isInit = true;
+
+  reply.header = CRTP_HEADER(7, 0);
+  reply.size = 1;
 }
 
 bool uartTest(void)
@@ -176,7 +182,7 @@ void uartRxTask(void *param)
   {
     if (xQueueReceive(uartDataDelivery, &c, UART_DATA_TIMEOUT_TICKS) == pdTRUE)
     {
-      counter++;
+     counter++;
      /* if (counter > 4)
         ledSetRed(1);*/
       switch(rxState)
@@ -215,10 +221,15 @@ void uartRxTask(void *param)
           }
           break;
         case waitForCRC:
-          if (crc == c)
+      	  if (crc == c)
           {
             xQueueSend(packetDelivery, &p, 0);
           }
+
+	  if((p.header & 0xF0) == 0x70) {
+		uartCustomPacket(&p);	  	
+	  }
+
           rxState = waitForFirstStart;
           break;
         default:
@@ -234,11 +245,27 @@ void uartRxTask(void *param)
   }
 }
 
+static void uartCustomPacket(CRTPPacket *p) {
+      
+     reply.data[0] = p->data[0];
+     crtpSendPacket(&reply);
+      if(p->data[0] == 't') {
+      	consolePuts("UARTTest");
+	
+      } else if(p->data[0] == 'd') {
+      	consolePuts("Died!");
+      } else if(p->data[0] == 'r') {
+	consolePuts("Revived!");
+      }
+      consoleFlush();
+ 
+}
+
 static int uartReceiveCRTPPacket(CRTPPacket *p)
 {
   if (xQueueReceive(packetDelivery, p, portMAX_DELAY) == pdTRUE)
   {
-    return 0;
+     return 0;
   }
 
   return -1;

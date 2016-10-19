@@ -23,7 +23,7 @@
  *
  * comm.c - High level communication module
  */
-
+#define USE_CRTP_UART
 #include <stdbool.h>
 
 #include "config.h"

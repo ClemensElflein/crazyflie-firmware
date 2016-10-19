@@ -23,6 +23,7 @@
  *
  *
  */
+
 #include <math.h>
 
 #include "FreeRTOS.h"
@@ -36,7 +37,8 @@
 #include "num.h"
 #include "debug.h"
 #include "ext_position.h"
-#include "i2cdev.h"
+#include "uart.h"
+//#include "shootio.h"
 
 #define MIN_THRUST  1000
 #define MAX_THRUST  60000
@@ -92,6 +94,7 @@ static YawModeType yawMode = DEFAULT_YAW_MODE; // Yaw mode configuration
 static bool carefreeResetFront;             // Reset what is front in carefree mode
 
 static void commanderCrtpCB(CRTPPacket* pk);
+static void commanderShootCB(CRTPPacket* pk);
 static void commanderCacheSelectorUpdate(void);
 
 /* Private functions */
@@ -182,13 +185,15 @@ static void commanderCrtpCB(CRTPPacket* pk)
   }
 }
 
-bool commanderGetShoot() {
+static void commanderShootCB(CRTPPacket* pk) {
+	consolePuts("shoot uart2");
+	//for(int i = 0; i < 1000; i++)
+	uartPutchar('\n');
+	uartPutchar('s');
+
+	//digitalWrite(DECK_GPIO_SDA, shootState & 1);
+
 	shootState++;
-	if(shootState >= 1000) {
-		shootState = 0;
-		return true;
-	}
-	return false;
 }
 
 /**
@@ -272,17 +277,23 @@ void commanderInit(void)
 
   crtpInit();
   //crtpRegisterPortCB(CRTP_PORT_SETPOINT, commanderCrtpCB);
-  //crtpRegisterPortCB(CRTP_PORT_SHOOT, commanderShoot);
+  crtpRegisterPortCB(CRTP_PORT_SHOOT, commanderShootCB);
   crtpRegisterPortCB(CRTP_PORT_SETPOINT, commanderCrtpCB);
   extPositionInit(); // Set callback for CRTP_PORT_POSITION
 
-  bool success = i2cdevInit(I2C2);
-  if(success) {
-  	consolePuts("i2c success");
+  if(uartTest()) {
+  	consolePuts("Uart already initialized.\r\n");
   } else {
-  	consolePuts("i2c failed");
-  }
+  uartInit();
 
+  bool success = uartTest(); 
+  if(success) {
+  	consolePuts("uart init success");
+  } else {
+  	consolePuts("uart init  failed");
+  }
+  }
+  
   activeCache = &crtpCache;
   lastUpdate = xTaskGetTickCount();
   isInactive = true;
